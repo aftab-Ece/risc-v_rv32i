@@ -1,5 +1,5 @@
 module pipo_reg #(
-    parameter width=32
+    parameter width=32,
               pc_reset_address=32'b0 // default reset address can be overriden to any value
 )(
     input [width-1:0] in,

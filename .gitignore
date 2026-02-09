@@ -14,7 +14,7 @@
 *.synth
 *.synthesized
 *.synthesis
-
+*.py
 
 # Ignore output and files
 out
