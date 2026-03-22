@@ -1,6 +1,178 @@
- 00500513
- 00700593
- 008000EF
- 00000013
- 00B50633
- 00008067
+// ============================================================
+// RV32I branch & jump edge case test
+// $readmemh compatible — one 32-bit word per line
+//
+// Pass condition : x10 = 24, PC stuck at HALT
+// Fail condition : PC stuck at a FAIL trap (JAL x0,0)
+//                  The pc value tells you exactly which test failed
+//
+// Register usage:
+//   x0  = zero (hardwired)
+//   x1  = link register (JAL/JALR)
+//   x5  = scratch a
+//   x6  = scratch b
+//   x7  = expected value
+//   x10 = pass counter (24 = all passed)
+//
+// FAIL trap addresses (PC stuck here = that test failed):
+//   pc=0x010  [004]  FAIL T1 BEQ taken: stuck here if reached (pc=0x010)
+//   pc=0x02C  [011]  FAIL T2 BEQ not-taken: stuck here if reached (pc=0x02C)
+//   pc=0x03C  [015]  FAIL T3 BNE taken: stuck here if reached (pc=0x03C)
+//   pc=0x058  [022]  FAIL T4 BNE not-taken: stuck here if reached (pc=0x058)
+//   pc=0x068  [026]  FAIL T5 BLT taken: stuck here if reached (pc=0x068)
+//   pc=0x084  [033]  FAIL T6 BLT not-taken: stuck here if reached (pc=0x084)
+//   pc=0x094  [037]  FAIL T7 BLT signed -1<1: stuck here if reached (pc=0x094)
+//   pc=0x0B0  [044]  FAIL T8 BLT signed 1>-1: stuck here if reached (pc=0x0B0)
+//   pc=0x0C8  [050]  FAIL T9 BLTU 0xFFFF>1: stuck here if reached (pc=0x0C8)
+//   pc=0x0D8  [054]  FAIL T10 BLTU 1<0xFFFF: stuck here if reached (pc=0x0D8)
+//   pc=0x0EC  [059]  FAIL T11 BGE equal: stuck here if reached (pc=0x0EC)
+//   pc=0x100  [064]  FAIL T12 BGE greater: stuck here if reached (pc=0x100)
+//   pc=0x11C  [071]  FAIL T13 BGE not-taken: stuck here if reached (pc=0x11C)
+//   pc=0x134  [077]  FAIL T14 BGE signed: stuck here if reached (pc=0x134)
+//   pc=0x144  [081]  FAIL T15 BGEU: stuck here if reached (pc=0x144)
+//   pc=0x154  [085]  FAIL T16 BEQ x0: stuck here if reached (pc=0x154)
+//   pc=0x16C  [091]  FAIL T17 backward loop: stuck here if reached (pc=0x16C)
+//   pc=0x178  [094]  FAIL T18 JAL skipped-1: stuck here if reached (pc=0x178)
+//   pc=0x17C  [095]  FAIL T18 JAL skipped-2: stuck here if reached (pc=0x17C)
+//   pc=0x188  [098]  FAIL T18 JAL link wrong: stuck here if reached (pc=0x188)
+//   pc=0x1AC  [107]  FAIL T20 JALR zero-offset: stuck here if reached (pc=0x1AC)
+//   pc=0x1C4  [113]  FAIL T21 JALR imm-offset: stuck here if reached (pc=0x1C4)
+//   pc=0x1D8  [118]  FAIL T22 JALR link wrong: stuck here if reached (pc=0x1D8)
+//   pc=0x1EC  [123]  FAIL T23 x0 not zero: stuck here if reached (pc=0x1EC)
+//   pc=0x200  [128]  FAIL T24 min branch offset: stuck here if reached (pc=0x200)
+//
+// HALT address (success):
+//   pc=0x208
+// ============================================================
+
+00000513  // [000] pc=0x000  addi x10, x0, 0           # x10 = 0 (pass counter)
+00700293  // [001] pc=0x004  addi x5, x0, 7            # T1: x5 = 7
+00700313  // [002] pc=0x008  addi x6, x0, 7            # T1: x6 = 7
+00628463  // [003] pc=0x00C  beq  x5, x6, +8           # T1: taken (7==7) → skip FAIL
+0000006f  // [004] pc=0x010  jal  x0, 0                # FAIL T1 BEQ taken: stuck here if reached (pc=0x010)
+00150513  // [005] pc=0x014  addi x10, x10, 1         # PASS: increment pass counter
+00300293  // [006] pc=0x018  addi x5, x0, 3            # T2: x5 = 3
+00900313  // [007] pc=0x01C  addi x6, x0, 9            # T2: x6 = 9
+00628663  // [008] pc=0x020  beq  x5, x6, +12          # T2: not taken (3!=9) → fall through
+00150513  // [009] pc=0x024  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [010] pc=0x028  jal  x0, +8               # T2: skip FAIL
+0000006f  // [011] pc=0x02C  jal  x0, 0                # FAIL T2 BEQ not-taken: stuck here if reached (pc=0x02C)
+00100293  // [012] pc=0x030  addi x5, x0, 1            # T3: x5 = 1
+00200313  // [013] pc=0x034  addi x6, x0, 2            # T3: x6 = 2
+00629463  // [014] pc=0x038  bne  x5, x6, +8           # T3: taken (1!=2) → skip FAIL
+0000006f  // [015] pc=0x03C  jal  x0, 0                # FAIL T3 BNE taken: stuck here if reached (pc=0x03C)
+00150513  // [016] pc=0x040  addi x10, x10, 1         # PASS: increment pass counter
+00400293  // [017] pc=0x044  addi x5, x0, 4            # T4: x5 = 4
+00400313  // [018] pc=0x048  addi x6, x0, 4            # T4: x6 = 4
+00629663  // [019] pc=0x04C  bne  x5, x6, +12          # T4: not taken (4==4) → fall through
+00150513  // [020] pc=0x050  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [021] pc=0x054  jal  x0, +8               # T4: skip FAIL
+0000006f  // [022] pc=0x058  jal  x0, 0                # FAIL T4 BNE not-taken: stuck here if reached (pc=0x058)
+00100293  // [023] pc=0x05C  addi x5, x0, 1            # T5: x5 = 1
+00200313  // [024] pc=0x060  addi x6, x0, 2            # T5: x6 = 2
+0062c463  // [025] pc=0x064  blt  x5, x6, +8           # T5: taken (1<2 signed) → skip FAIL
+0000006f  // [026] pc=0x068  jal  x0, 0                # FAIL T5 BLT taken: stuck here if reached (pc=0x068)
+00150513  // [027] pc=0x06C  addi x10, x10, 1         # PASS: increment pass counter
+00500293  // [028] pc=0x070  addi x5, x0, 5            # T6: x5 = 5
+00300313  // [029] pc=0x074  addi x6, x0, 3            # T6: x6 = 3
+0062c663  // [030] pc=0x078  blt  x5, x6, +12          # T6: not taken (5>3) → fall through
+00150513  // [031] pc=0x07C  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [032] pc=0x080  jal  x0, +8               # T6: skip FAIL
+0000006f  // [033] pc=0x084  jal  x0, 0                # FAIL T6 BLT not-taken: stuck here if reached (pc=0x084)
+fff00293  // [034] pc=0x088  addi x5, x0, -1           # T7: x5 = -1 (0xFFFFFFFF)
+00100313  // [035] pc=0x08C  addi x6, x0,  1           # T7: x6 =  1
+0062c463  // [036] pc=0x090  blt  x5, x6, +8           # T7: taken (-1<1 signed) → skip FAIL
+0000006f  // [037] pc=0x094  jal  x0, 0                # FAIL T7 BLT signed -1<1: stuck here if reached (pc=0x094)
+00150513  // [038] pc=0x098  addi x10, x10, 1         # PASS: increment pass counter
+00100293  // [039] pc=0x09C  addi x5, x0,  1           # T8: x5 =  1
+fff00313  // [040] pc=0x0A0  addi x6, x0, -1           # T8: x6 = -1 (0xFFFFFFFF)
+0062c663  // [041] pc=0x0A4  blt  x5, x6, +12          # T8: not taken (1 > -1 signed) → fall through
+00150513  // [042] pc=0x0A8  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [043] pc=0x0AC  jal  x0, +8               # T8: skip FAIL
+0000006f  // [044] pc=0x0B0  jal  x0, 0                # FAIL T8 BLT signed 1>-1: stuck here if reached (pc=0x0B0)
+fff00293  // [045] pc=0x0B4  addi x5, x0, -1           # T9: x5 = 0xFFFFFFFF (large unsigned)
+00100313  // [046] pc=0x0B8  addi x6, x0,  1           # T9: x6 = 1
+0062e663  // [047] pc=0x0BC  bltu x5, x6, +12          # T9: not taken (0xFFFFFFFF > 1 unsigned)
+00150513  // [048] pc=0x0C0  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [049] pc=0x0C4  jal  x0, +8               # T9: skip FAIL
+0000006f  // [050] pc=0x0C8  jal  x0, 0                # FAIL T9 BLTU 0xFFFF>1: stuck here if reached (pc=0x0C8)
+00100293  // [051] pc=0x0CC  addi x5, x0,  1           # T10: x5 = 1
+fff00313  // [052] pc=0x0D0  addi x6, x0, -1           # T10: x6 = 0xFFFFFFFF
+0062e463  // [053] pc=0x0D4  bltu x5, x6, +8           # T10: taken (1 < 0xFFFFFFFF unsigned)
+0000006f  // [054] pc=0x0D8  jal  x0, 0                # FAIL T10 BLTU 1<0xFFFF: stuck here if reached (pc=0x0D8)
+00150513  // [055] pc=0x0DC  addi x10, x10, 1         # PASS: increment pass counter
+00500293  // [056] pc=0x0E0  addi x5, x0, 5            # T11: x5 = 5
+00500313  // [057] pc=0x0E4  addi x6, x0, 5            # T11: x6 = 5
+0062d463  // [058] pc=0x0E8  bge  x5, x6, +8           # T11: taken (5>=5 equal boundary)
+0000006f  // [059] pc=0x0EC  jal  x0, 0                # FAIL T11 BGE equal: stuck here if reached (pc=0x0EC)
+00150513  // [060] pc=0x0F0  addi x10, x10, 1         # PASS: increment pass counter
+00600293  // [061] pc=0x0F4  addi x5, x0, 6            # T12: x5 = 6
+00300313  // [062] pc=0x0F8  addi x6, x0, 3            # T12: x6 = 3
+0062d463  // [063] pc=0x0FC  bge  x5, x6, +8           # T12: taken (6>=3)
+0000006f  // [064] pc=0x100  jal  x0, 0                # FAIL T12 BGE greater: stuck here if reached (pc=0x100)
+00150513  // [065] pc=0x104  addi x10, x10, 1         # PASS: increment pass counter
+00200293  // [066] pc=0x108  addi x5, x0, 2            # T13: x5 = 2
+00800313  // [067] pc=0x10C  addi x6, x0, 8            # T13: x6 = 8
+0062d663  // [068] pc=0x110  bge  x5, x6, +12          # T13: not taken (2<8) → fall through
+00150513  // [069] pc=0x114  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [070] pc=0x118  jal  x0, +8               # T13: skip FAIL
+0000006f  // [071] pc=0x11C  jal  x0, 0                # FAIL T13 BGE not-taken: stuck here if reached (pc=0x11C)
+fff00293  // [072] pc=0x120  addi x5, x0, -1           # T14: x5 = -1
+00100313  // [073] pc=0x124  addi x6, x0,  1           # T14: x6 =  1
+0062d663  // [074] pc=0x128  bge  x5, x6, +12          # T14: not taken (-1 < 1 signed)
+00150513  // [075] pc=0x12C  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [076] pc=0x130  jal  x0, +8               # T14: skip FAIL
+0000006f  // [077] pc=0x134  jal  x0, 0                # FAIL T14 BGE signed: stuck here if reached (pc=0x134)
+fff00293  // [078] pc=0x138  addi x5, x0, -1           # T15: x5 = 0xFFFFFFFF
+00100313  // [079] pc=0x13C  addi x6, x0,  1           # T15: x6 = 1
+0062f463  // [080] pc=0x140  bgeu x5, x6, +8           # T15: taken (0xFFFFFFFF >= 1 unsigned)
+0000006f  // [081] pc=0x144  jal  x0, 0                # FAIL T15 BGEU: stuck here if reached (pc=0x144)
+00150513  // [082] pc=0x148  addi x10, x10, 1         # PASS: increment pass counter
+00000293  // [083] pc=0x14C  addi x5, x0, 0            # T16: x5 = 0
+00028463  // [084] pc=0x150  beq  x5, x0, +8           # T16: taken (x5==x0==0)
+0000006f  // [085] pc=0x154  jal  x0, 0                # FAIL T16 BEQ x0: stuck here if reached (pc=0x154)
+00150513  // [086] pc=0x158  addi x10, x10, 1         # PASS: increment pass counter
+00300293  // [087] pc=0x15C  addi x5, x0, 3            # T17: loop counter = 3
+fff28293  // [088] pc=0x160  addi x5, x5, -1           # T17: x5-- (loop body)  ← branch target
+fe029ee3  // [089] pc=0x164  bne  x5, x0, loop_top     # T17: back to loop_top while x5!=0
+00028463  // [090] pc=0x168  beq  x5, x0, +8           # T17: verify x5==0 after loop exits
+0000006f  // [091] pc=0x16C  jal  x0, 0                # FAIL T17 backward loop: stuck here if reached (pc=0x16C)
+00150513  // [092] pc=0x170  addi x10, x10, 1         # PASS: increment pass counter
+00c000ef  // [093] pc=0x174  jal  x1, +12              # T18: x1=pc+4, jump over 2 words
+0000006f  // [094] pc=0x178  jal  x0, 0                # FAIL T18 JAL skipped-1: stuck here if reached (pc=0x178)
+0000006f  // [095] pc=0x17C  jal  x0, 0                # FAIL T18 JAL skipped-2: stuck here if reached (pc=0x17C)
+17800393  // [096] pc=0x180  addi x7, x0, 0x178     # T18: x7 = expected link value (pc=0x174+4)
+00708463  // [097] pc=0x184  beq  x1, x7, +8           # T18: x1==expected → skip FAIL
+0000006f  // [098] pc=0x188  jal  x0, 0                # FAIL T18 JAL link wrong: stuck here if reached (pc=0x188)
+00150513  // [099] pc=0x18C  addi x10, x10, 1         # PASS: increment pass counter
+00c0006f  // [100] pc=0x190  jal  x0, +12              # T19: skip pass marker, jump to backward-jal
+00150513  // [101] pc=0x194  addi x10, x10, 1         # PASS: increment pass counter
+0080006f  // [102] pc=0x198  jal  x0, +8               # T19: skip backward-jal after passing
+ff9ff06f  // [103] pc=0x19C  jal  x0, -8              # T19: backward jump to pass marker (0x194)
+0100006f  // [104] pc=0x1A0  jal  x0, +16              # T20: skip landing pad, go to setup
+00150513  // [105] pc=0x1A4  addi x10, x10, 1         # PASS: increment pass counter
+0100006f  // [106] pc=0x1A8  jal  x0, +16              # T20: skip FAIL+setup, past jalr
+0000006f  // [107] pc=0x1AC  jal  x0, 0                # FAIL T20 JALR zero-offset: stuck here if reached (pc=0x1AC)
+1a400293  // [108] pc=0x1B0  addi x5, x0, 0x1A4     # T20: x5 = jalr target (0x1A4)
+000280e7  // [109] pc=0x1B4  jalr x1, x5, 0            # T20: jump to x5+0
+0100006f  // [110] pc=0x1B8  jal  x0, +16              # T21: skip landing pad, go to setup
+00150513  // [111] pc=0x1BC  addi x10, x10, 1         # PASS: increment pass counter
+0100006f  // [112] pc=0x1C0  jal  x0, +16              # T21: skip FAIL+setup, past jalr
+0000006f  // [113] pc=0x1C4  jal  x0, 0                # FAIL T21 JALR imm-offset: stuck here if reached (pc=0x1C4)
+1b400293  // [114] pc=0x1C8  addi x5, x0, 0x1B4     # T21: x5 = target-8 = 0x1B4
+008280e7  // [115] pc=0x1CC  jalr x1, x5, 8            # T21: jump to x5+8 = landing pad
+1d000393  // [116] pc=0x1D0  addi x7, x0, 0x1D0     # T22: x7 = expected JALR link = 0x1D0
+00708463  // [117] pc=0x1D4  beq  x1, x7, +8           # T22: x1==expected → skip FAIL
+0000006f  // [118] pc=0x1D8  jal  x0, 0                # FAIL T22 JALR link wrong: stuck here if reached (pc=0x1D8)
+00150513  // [119] pc=0x1DC  addi x10, x10, 1         # PASS: increment pass counter
+00500013  // [120] pc=0x1E0  addi x0, x0, 5            # T23: attempt write to x0 (must be ignored)
+00000393  // [121] pc=0x1E4  addi x7, x0, 0            # T23: x7 = 0 (reference)
+00700463  // [122] pc=0x1E8  beq  x0, x7, +8           # T23: x0==0 still → skip FAIL
+0000006f  // [123] pc=0x1EC  jal  x0, 0                # FAIL T23 x0 not zero: stuck here if reached (pc=0x1EC)
+00150513  // [124] pc=0x1F0  addi x10, x10, 1         # PASS: increment pass counter
+00100293  // [125] pc=0x1F4  addi x5, x0, 1            # T24: x5 = 1
+00100313  // [126] pc=0x1F8  addi x6, x0, 1            # T24: x6 = 1
+00628463  // [127] pc=0x1FC  beq  x5, x6, +8           # T24: taken, skip exactly 1 word
+0000006f  // [128] pc=0x200  jal  x0, 0                # FAIL T24 min branch offset: stuck here if reached (pc=0x200)
+00150513  // [129] pc=0x204  addi x10, x10, 1         # PASS: increment pass counter
+0000006f  // [130] pc=0x208  jal  x0, 0                # HALT all passed: infinite loop at pc=0x208

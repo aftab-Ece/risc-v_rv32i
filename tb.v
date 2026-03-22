@@ -17,7 +17,7 @@ module tb;
     initial begin
        #2 rst=1;
        #10 rst=0;
-    #3000;
+    #6610;
         $finish;
     end
     // Clock generation

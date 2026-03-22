@@ -22,14 +22,12 @@ module instr_mem #(
     // input [data_width-1:0] data_in,
     output reg [data_width-1:0] data_out
 );
-reg [addr_width-1:0] addr_reg;
     reg [data_width-1:0] mem [0:depth-1];
     initial begin
         $readmemh("instr_mem.mem", mem);
     end
     always @(posedge clk) begin
-        addr_reg <=  addr;
-        data_out <= {mem[addr_reg]};
+        data_out <= {mem[addr]};
         
     end
 endmodule

@@ -143,7 +143,7 @@ module instruction_decoder (
         mem_rd_or_wr_bar=1'b0; 
         sign_ext_sel_12bit=2'b00; // uj_type
         sign_ext_sel_20bit=1'b1;
-        reg_write_sel=1'b0; // no write back 
+        reg_write_sel=1'b0; // no write back from memory or alu as we will write pc+4 in register for return address
         alu_control=4'b0010; // add for effective address calculation
         is_jump=1'b1;
         end
@@ -167,7 +167,7 @@ module instruction_decoder (
         reg_write_sel=1'b0; // no write back
         is_branch=1'b1;
         case(funct3)
-        3'b000,3'b001: alu_control= 4'b0010;
+        3'b000,3'b001: alu_control= 4'b0011; 
         3'b100,3'b101: alu_control= 4'b0101;
         3'b110,3'b111: alu_control= 4'b0100;
         endcase 
