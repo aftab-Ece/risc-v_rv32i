@@ -30,6 +30,7 @@ incremental_db/
 output_files/
 simulation/modelsim/
 quartus files/
+logs_and_vcd/
 
 # Ignore temporary files
 *~
